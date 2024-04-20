@@ -1,9 +1,57 @@
 version: 'latest'
 
 services:
-  hzzan:  
-    image: python:3.8-slim  
-    command: sh -c "python -m pip install --upgrade pip && python -m pip install --upgrade uproot awkward vector numpy matplotlib pika && python main.py"  
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - hzzann
+  
+  manager:
+    image: main
+    build:
+      context: ./
+      dockerfile: ./manager/Dockerfile
+    networks:
+      - hzzann
+    stdin_open: true
+    tty: true
+    depends_on:
+      - rabbitmq
+
+  worker:
+    image: worker
+    build:
+      context: ./
+      dockerfile: ./worker/Dockerfile
+    networks:
+      - hzzann
+    stdin_open: true
+    tty: true
+    deploy:
+    ### Change this value to upscale number of workers
+      replicas: 2
+    depends_on:
+      - rabbitmq
+
+  outputter:
+    image: output
+    build:
+      context: ./
+      dockerfile: ./outputter/Dockerfile
     volumes:
-      - .:/app 
-    working_dir: /app 
+      - .:/app/data_storage
+    networks:
+      - hzzann
+    stdin_open: true
+    tty: true
+    depends_on:
+      - rabbitmq
+
+networks:
+  hzzann:
+    driver: bridge
+
