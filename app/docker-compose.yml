@@ -1,0 +1,9 @@
+version: 'latest'
+
+services:
+  hzzan:  
+    image: python:3.8-slim  
+    command: sh -c "python -m pip install --upgrade pip && python -m pip install --upgrade uproot awkward vector numpy matplotlib pika && python main.py"  
+    volumes:
+      - .:/app 
+    working_dir: /app 
