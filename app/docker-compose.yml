@@ -8,7 +8,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     networks:
-      - hzzann
+      - rmq
   
   manager:
     image: main
@@ -16,7 +16,7 @@ services:
       context: ./
       dockerfile: ./manager/Dockerfile
     networks:
-      - hzzann
+      - rmq
     stdin_open: true
     tty: true
     depends_on:
@@ -28,7 +28,7 @@ services:
       context: ./
       dockerfile: ./worker/Dockerfile
     networks:
-      - hzzann
+      - rmq
     stdin_open: true
     tty: true
     deploy:
@@ -45,13 +45,13 @@ services:
     volumes:
       - .:/app/data_storage
     networks:
-      - hzzann
+      - rmq
     stdin_open: true
     tty: true
     depends_on:
       - rabbitmq
 
 networks:
-  hzzann:
+  rmq:
     driver: bridge
 
