@@ -45,7 +45,7 @@ def callback(ch, method, properties, body):
     print(f'Processed {segment["sample"]} segment')
 
 # Connect to RabbitMQ
-connection = rabbitmq_connect('localhost')
+connection = rabbitmq_connect('rabbitmq')
 channel = connection.channel()  
 channel.queue_declare(queue='segmented_data')   
 channel.basic_consume(queue='segmented_data', on_message_callback=callback, auto_ack=True)
@@ -166,7 +166,7 @@ def plot_data(merged_data):
     lumi_used = str(lumi*fraction) # luminosity to write on the plot
     plt.text(0.05, # x
              0.82, # y
-             '$\sqrt{s}$=13 TeV,$\int$L dt = '+lumi_used+' fb$^{-1}$', # text
+             r'$\sqrt{s}$=13 TeV,$\int$L dt = '+lumi_used+' fb$^{-1}$', # text
              transform=main_axes.transAxes ) # coordinate system used is that of main_axes
     
     # Add a label for the analysis carried out

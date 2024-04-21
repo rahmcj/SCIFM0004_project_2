@@ -1,22 +1,21 @@
 
 FROM python:latest
 
-##NEED TO ADD SCRIPTS TO FOLDER
+
 # Update pip package installer
 RUN python -m pip install --upgrade pip
 
 # Install needed Python packages
-RUN python -m pip install --upgrade uproot awkward vector numpy matplotlib pika
+RUN python -m pip install --upgrade uproot awkward vector numpy matplotlib pika requests aiohttp
 
 # Set the working directory
 WORKDIR /app
 
-# Copy Python script ##MAY NEED TO REMOVE THIS WHEN SPLITTING
-COPY . .
-
 # Port mapping required? e.g. EXPOSE 4000
 
-# Command to run the script
+# Copy scripts into working directory
+COPY consumer/consumer.py /app/consumer.py
+COPY infofile.py /app/infofile.py
 
-# CHANGE TO BE RELEVANT SCRIPT WHEN YOU HAVE THE NAMES
+# Command to run the script
 CMD ["python", "consumer.py"]

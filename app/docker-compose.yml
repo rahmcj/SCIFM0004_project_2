@@ -1,4 +1,4 @@
-version: 'latest'
+version: '3.8'
 
 services:
 
@@ -10,11 +10,11 @@ services:
     networks:
       - rmq
   
-  manager:
-    image: main
+  producer:
+    image: producer
     build:
       context: ./
-      dockerfile: ./manager/Dockerfile
+      dockerfile: ./producer/Dockerfile
     networks:
       - rmq
     stdin_open: true
@@ -22,11 +22,11 @@ services:
     depends_on:
       - rabbitmq
 
-  worker:
-    image: worker
+  consumer:
+    image: consumer
     build:
       context: ./
-      dockerfile: ./worker/Dockerfile
+      dockerfile: ./consumer/Dockerfile
     networks:
       - rmq
     stdin_open: true
@@ -42,8 +42,8 @@ services:
     build:
       context: ./
       dockerfile: ./outputter/Dockerfile
-    volumes:
-      - .:/app/data_storage
+    #volumes:
+     # - .:/app/data_storage
     networks:
       - rmq
     stdin_open: true

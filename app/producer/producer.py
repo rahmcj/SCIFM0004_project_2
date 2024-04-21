@@ -88,14 +88,14 @@ def segment_data(data, number_workers):
 
 ## Read file
 
-def read_file(path):
+def read_file(path, val):
     with uproot.open(path + ":mini") as tree:
        data_all = tree.arrays() # read all data
     return data_all
 
 
 def send_data_to_workers(start_and_end):
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
     channel = connection.channel()
     channel.queue_declare(queue='segmented_data')
     for segment in start_and_end:

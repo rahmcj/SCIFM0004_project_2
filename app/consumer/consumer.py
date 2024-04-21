@@ -94,7 +94,7 @@ def callback(ch, method, properties, body):
     print(f'Processed {len(processed_segment)} events')
 
 # connect to rabbitMQ
-connection = rabbitmq_connect('localhost')
+connection = rabbitmq_connect('rabbitmq')
 channel = connection.channel()  
 channel.queue_declare(queue='segmented_data')   
 
