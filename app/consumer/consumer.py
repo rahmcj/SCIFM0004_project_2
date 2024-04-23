@@ -6,10 +6,43 @@ import time
 import json
 import infofile
 import numpy as np
+import zlib
 
 ### Units ###
 MeV = 0.001
 GeV = 1.0
+# url for data
+tuple_path = "https://atlas-opendata.web.cern.ch/atlas-opendata/samples/2020/4lep/" # web address
+#lumi = 0.5 # fb-1 # data_A only
+#lumi = 1.9 # fb-1 # data_B only
+#lumi = 2.9 # fb-1 # data_C only
+#lumi = 4.7 # fb-1 # data_D only
+lumi = 10 # fb-1 # data_A,data_B,data_C,data_D
+fraction = 1.0 # reduce this is if you want the code to run quicker
+
+
+samples = {
+
+    'data': {
+        'list' : ['data_A','data_B','data_C','data_D'],
+    },
+
+    r'Background $Z,t\bar{t}$' : { # Z + ttbar
+        'list' : ['Zee','Zmumu','ttbar_lep'],
+        'color' : "#6b59d3" # purple
+    },
+
+    r'Background $ZZ^*$' : { # ZZ
+        'list' : ['llll'],
+        'color' : "#ff0000" # red
+    },
+
+    r'Signal ($m_H$ = 125 GeV)' : { # H -> ZZ -> llll
+        'list' : ['ggH125_ZZ4lep','VBFH125_ZZ4lep','WH125_ZZ4lep','ZH125_ZZ4lep'],
+        'color' : "#00cdff" # light blue
+    },
+
+}
 
 # Connect to RabbitMQ
 def rabbitmq_connect(host, retries=10, delay=5):
@@ -69,34 +102,90 @@ def cut_lep_type(lep_type):
     return (sum_lep_type != 44) & (sum_lep_type != 48) & (sum_lep_type != 52)
 
 ### Function to process data
-def process_segment(segment):
-    sample = segment['sample']
-    data = segment['data']
+def process_segment(field_list, tuple_path):
+    field = field_list.decode('utf-8')
+    pref = field.split()[0]
+    val = field.split()[1]
+    sample = val
+    fileString = tuple_path+pref+val+".4lep.root" # file name to open
+    
+    data_all = [] # empty list to hold data
+    # open the tree called mini using a context manager (will automatically close files/resources)
+    with uproot.open(fileString + ":mini") as tree:
+        numevents = tree.num_entries # number of events
+        if 'data' not in sample: xsec_weight = get_xsec_weight(sample) # get cross-section weight
+        for data in tree.iterate(['lep_pt','lep_eta','lep_phi',
+                                  'lep_E','lep_charge','lep_type', 
+                                  # add more variables here if you make cuts on them 
+                                  'mcWeight','scaleFactor_PILEUP',
+                                  'scaleFactor_ELE','scaleFactor_MUON',
+                                  'scaleFactor_LepTRIGGER'], # variables to calculate Monte Carlo weight
+                                 library="ak", # choose output type as awkward array
+                                 entry_stop=numevents*fraction): # process up to numevents*fraction
+            if 'data' not in sample: # only do this for Monte Carlo simulation files
+                # multiply all Monte Carlo weights and scale factors together to give total weight
+                data['totalWeight'] = calc_weight(xsec_weight, data)
 
-    if sample is not None and 'data' not in sample:
-        xsec_weight = get_xsec_weight(sample)  # get cross-section weight
-        data['totalWeight'] = calc_weight(xsec_weight, data)  # multiply all Monte Carlo weights and scale factors together to give total weight
+            # cut on lepton charge using the function cut_lep_charge defined above
+            data = data[~cut_lep_charge(data.lep_charge)]
 
-    # cut on lepton charge using the function cut_lep_charge defined above
-    data = data[~cut_lep_charge(data.lep_charge)]
+            # cut on lepton type using the function cut_lep_type defined above
+            data = data[~cut_lep_type(data.lep_type)]
 
-    # cut on lepton type using the function cut_lep_type defined above
-    data = data[~cut_lep_type(data.lep_type)]
+            # calculation of 4-lepton invariant mass using the function calc_mllll defined above
+            data['mllll'] = calc_mllll(data.lep_pt, data.lep_eta, data.lep_phi, data.lep_E)
 
-    # calculation of 4-lepton invariant mass using the function calc_mllll defined above
-    data['mllll'] = calc_mllll(data.lep_pt, data.lep_eta, data.lep_phi, data.lep_E)
+            # array contents can be printed at any stage like this
+            #print(data)
 
-    return data
+            # array column can be printed at any stage like this
+            #print(data['lep_pt'])
+
+            # multiple array columns can be printed at any stage like this
+            #print(data[['lep_pt','lep_eta']])
+
+        
+            data_all.append(data) # append array from this batch
+     
+    
+    data = ak.concatenate(data_all) # concatenate all of the arrays
+    ser_data = ak.to_list(data) # serialize the awkward array
+    data_and_sample = { 'sample': sample, 'data': ser_data } # create dictionary with sample name and data
+    pre_compressed_data = json.dumps(data_and_sample) # convert dictionary to JSON
+    compressed_data = zlib.compress(pre_compressed_data.encode('utf-8')) # compress serialised data
+
+    return compressed_data
 
 def callback(ch, method, properties, body):
-    segment = json.loads(body)
-    processed_segment = process_segment(segment)
-    print(f'Processed {len(processed_segment)} events')
+    try:
+        # process data
+        data = process_segment(body, tuple_path)
+
+        #send to output processor
+        ch.basic_publish(exchange='', routing_key='processed_data', body=data)
+        print(f"Processed data sent to outputter")
+    except Exception as e:
+        print(f"Failed to process data: {e}")
+#    segment = json.loads(body)
+
+ #   if isinstance(segment, list):
+  #      segment = segment[0]
+
+   # if isinstance(segment, dict):
+    #    sample = segment.get('sample')
+     #   data = segment.get('data')
+
+      #  if data is not None:
+       #     processed_data = process_segment(data)
+        #    return processed_data   
 
 # connect to rabbitMQ
 connection = rabbitmq_connect('rabbitmq')
 channel = connection.channel()  
+# declare queue to receive messages from producer
 channel.queue_declare(queue='segmented_data')   
+# declare queue to send messages to outputter
+channel.queue_declare(queue='processed_data')
 
 # enbale consumer to receive messages from segmented_data queue
 channel.basic_consume(queue='segmented_data', on_message_callback=callback, auto_ack=True)

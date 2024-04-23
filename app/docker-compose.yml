@@ -12,7 +12,7 @@ services:
   
   producer:
     image: producer
-    build:
+    build: 
       context: ./
       dockerfile: ./producer/Dockerfile
     networks:
@@ -27,6 +27,8 @@ services:
     build:
       context: ./
       dockerfile: ./consumer/Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
     networks:
       - rmq
     stdin_open: true
