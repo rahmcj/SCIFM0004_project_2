@@ -9,14 +9,42 @@ import json
 import infofile
 import numpy as np
 import matplotlib.pyplot as plt
+import zlib
 from matplotlib.ticker import AutoMinorLocator  # for minor ticks
 
-# Define the merged data structure
+# Define the merged data dictionary
 merged_data = {}
-
+lumi = 10
+fraction = 1.0
 ### Units ###
 MeV = 0.001
 GeV = 1.0
+
+samples = {
+
+    'data': {
+        'list' : ['data_A','data_B','data_C','data_D'],
+    },
+
+    r'Background $Z,t\bar{t}$' : { # Z + ttbar
+        'list' : ['Zee','Zmumu','ttbar_lep'],
+        'color' : "#6b59d3" # purple
+    },
+
+    r'Background $ZZ^*$' : { # ZZ
+        'list' : ['llll'],
+        'color' : "#ff0000" # red
+    },
+
+    r'Signal ($m_H$ = 125 GeV)' : { # H -> ZZ -> llll
+        'list' : ['ggH125_ZZ4lep','VBFH125_ZZ4lep','WH125_ZZ4lep','ZH125_ZZ4lep'],
+        'color' : "#00cdff" # light blue
+    },
+
+}
+
+
+
 
 # Connect to RabbitMQ
 def rabbitmq_connect(host, retries=10, delay=5):
@@ -27,6 +55,8 @@ def rabbitmq_connect(host, retries=10, delay=5):
             print(f'Failed to connect to {host}, retrying in {delay} seconds')
             time.sleep(delay)
     raise Exception(f'Failed to connect to {host} after {retries} retries')
+
+
 
 # Function to process each segment of data
 def process_segment(segment):
@@ -40,20 +70,52 @@ def process_segment(segment):
 
 # Callback function for receiving messages
 def callback(ch, method, properties, body):
-    segment = json.loads(body)
-    process_segment(segment)
-    print(f'Processed {segment["sample"]} segment')
+    try:
+        # Decompress the data
+        segment = json.loads(zlib.decompress(body).decode('utf-8'))
+        process_segment(segment)
+
+        print(f'processed {segment["sample"]}')
+    except Exception as e:
+        print(f'Error processing message: {e}')
+       # if isinstance(segment, list):
+        #    segment = segment[0]
+
+        #if isinstance(segment, dict):
+         #   sample = segment.get('sample')
+          #  data = segment.get('data')
+
+           # if data is not None:
+        #        process_segment(segment)
+    #decompress the data
+   # segment = json.loads(zlib.decompress(body).decode('utf-8'))
+
+    #if isinstance(segment, list):
+     #   segment = segment[0]
+
+    #if isinstance(segment, dict):
+     #   sample = segment.get('sample')
+      #  data = segment.get('data')
+
+       # if data is not None:
+        #     process_segment(segment)
+
 
 # Connect to RabbitMQ
 connection = rabbitmq_connect('rabbitmq')
 channel = connection.channel()  
-channel.queue_declare(queue='segmented_data')   
-channel.basic_consume(queue='segmented_data', on_message_callback=callback, auto_ack=True)
+channel.queue_declare(queue='processed_data')   
+channel.basic_consume(queue='processed_data', on_message_callback=callback, auto_ack=True)
 
 # Wait for messages
 print('Waiting for messages. To exit press CTRL+C')
-channel.start_consuming()
-
+try: 
+    channel.start_consuming()
+except KeyboardInterrupt:
+    print('Interrupted')
+finally:
+    connection.close()
+    
 # Plot the merged data
 def plot_data(merged_data):
     xmin = 80 * GeV

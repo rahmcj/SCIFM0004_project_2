@@ -70,8 +70,8 @@ def get_data_from_files(samples):
             else: # MC prefix
                 prefix = "MC/mc_"+str(infofile.infos[val]["DSID"])+"."
 
-                field=prefix+' '+val
-                fields.append(field) # append file name to list of fields
+            field=prefix+' '+val
+            fields.append(field) # append file name to list of fields
            # fileString = tuple_path+prefix+val+".4lep.root" # file name to open
             #temp = read_file(fileString,val) # call the function read_file defined below
             #frames.append(temp) # append array returned from read_file to list of awkward arrays
