@@ -153,10 +153,10 @@ def process_segment(field_list, tuple_path):
     data = ak.concatenate(data_all) # concatenate all of the arrays
     ser_data = ak.to_list(data) # serialize the awkward array
     data_and_sample = { 'sample': sample, 'data': ser_data } # create dictionary with sample name and data
-    pre_compressed_data = json.dumps(data_and_sample) # convert dictionary to JSON
-    compressed_data = zlib.compress(pre_compressed_data.encode('utf-8')) # compress serialised data
+    pre_zipped_data = json.dumps(data_and_sample) # convert dictionary to JSON
+    zipped_data = zlib.compress(pre_zipped_data.encode('utf-8')) # compress serialised data
     print(total_time) # print total time taken for comparison
-    return compressed_data
+    return zipped_data
 
 def callback(ch, method, properties, body):
     try:
